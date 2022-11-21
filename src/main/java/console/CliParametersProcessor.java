@@ -12,13 +12,20 @@ import org.apache.logging.log4j.Logger;
 
 import model.Currency;
 
-public class AppArgumentsProcessor {
+public class CliParametersProcessor implements ICliParametersProcessor {
 
-    private static final Logger LOGGER = LogManager.getLogger(AppArgumentsProcessor.class);
+    private static final Logger LOGGER = LogManager.getLogger(CliParametersProcessor.class);
 
-    public static List<String> processArguments(String[] args) {
+    private static final String COMMA = ",";
+    private static final String BACK_SLASH = "/";
+
+    static final String INVALID_PAIR_PROVIDED_ERROR_MSG = "Invalid currency: '%s' provided part of order book pair: '%s'";
+    static final String NO_COMMAND_LINE_ARGS_PROVIDED_ERROR_MSG = "No command line arguments are provided. Expecting: BTC/USD or ETH/USD. Exiting...";
+
+    @Override
+    public List<String> processArguments(String[] args) {
         assertNonEmptyArguments(args);
-        String[] orderBookPairs = args[0].split(",");
+        String[] orderBookPairs = args[0].split(COMMA);
         List<String> validPairs = new ArrayList<>();
         for (String pair : orderBookPairs) {
             assertValidOrderBookPair(pair);
@@ -28,24 +35,23 @@ public class AppArgumentsProcessor {
     }
 
     private static void assertValidOrderBookPair(String orderBookPair) {
-        String[] orderBookPairParts = orderBookPair.split("/");
+        String[] orderBookPairParts = orderBookPair.split(BACK_SLASH);
         assertValidCurrencyPartOfPair(orderBookPair, orderBookPairParts[0]);
         assertValidCurrencyPartOfPair(orderBookPair, orderBookPairParts[1]);
     }
 
     private static void assertValidCurrencyPartOfPair(String orderBookPair, String firstCurrency) {
         if (!isValidEnum(Currency.class, firstCurrency)) {
-            LOGGER.error(format("Invalid currency: '%s' provided part of order book pair: '%s'",
-                    firstCurrency, orderBookPair));
-            System.exit(1);
+            String msg = format(INVALID_PAIR_PROVIDED_ERROR_MSG, firstCurrency, orderBookPair);
+            LOGGER.error(msg);
+            throw new IllegalArgumentException(msg);
         }
     }
 
     private static void assertNonEmptyArguments(String[] args) {
         if (isEmpty(args)) {
-            LOGGER.error(
-                    "No command line arguments are provided. Expecting: BTC/USD or ETH/USD. Exiting...");
-            System.exit(1);
+            LOGGER.error(NO_COMMAND_LINE_ARGS_PROVIDED_ERROR_MSG);
+            throw new IllegalArgumentException(NO_COMMAND_LINE_ARGS_PROVIDED_ERROR_MSG);
         }
     }
 }

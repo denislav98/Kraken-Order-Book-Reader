@@ -1,9 +1,11 @@
 package websocket;
 
 import static java.lang.String.format;
+import static console.ConsoleWriter.display;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Map;
 
 import javax.websocket.ClientEndpoint;
 import javax.websocket.CloseReason;
@@ -18,6 +20,7 @@ import javax.websocket.WebSocketContainer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import model.OrderBook;
 import websocket.message.IMessageHandler;
 
 @ClientEndpoint()
@@ -28,23 +31,14 @@ public class WebSocketClientEndpoint {
     private Session userSession;
     private IMessageHandler messageHandler;
 
-    public WebSocketClientEndpoint(URI endpointURI) {
+    public WebSocketClientEndpoint(String endpoint) {
         try {
             WebSocketContainer container = ContainerProvider.getWebSocketContainer();
-            userSession = container.connectToServer(this, endpointURI);
+            userSession = container.connectToServer(this, new URI(endpoint));
         } catch (Exception e) {
-            LOGGER.error(format("Failed to connect to server endpoint %s", endpointURI), e);
-            throw new RuntimeException(e);
-        }
-    }
-
-    public void close() {
-        if (userSession != null) {
-            try {
-                userSession.close();
-            } catch (IOException e) {
-                LOGGER.error("Failed to close connection", e);
-            }
+            String errorMsg = format("Failed to connect to server endpoint %s", endpoint);
+            LOGGER.error(format(errorMsg, endpoint), e);
+            throw new WebSocketClientConnectionException(errorMsg, e);
         }
     }
 
@@ -56,15 +50,22 @@ public class WebSocketClientEndpoint {
     }
 
     @OnClose
-    public void onClose(Session userSession, CloseReason reason) {
+    public void onClose(CloseReason reason) {
         LOGGER.info("onClose: " + reason.toString());
-        this.userSession = null;
+        if (userSession != null) {
+            try {
+                userSession.close();
+            } catch (IOException e) {
+                LOGGER.error("Failed to close connection", e);
+            }
+        }
     }
 
     @OnMessage
-    public void onMessage(Session session, String message) {
+    public void onMessage(String message) {
         if (this.messageHandler != null) {
-            this.messageHandler.handleMessage(message);
+            Map<String, OrderBook> orderBookMap = this.messageHandler.handleMessage(message);
+            display(orderBookMap);
         }
     }
 

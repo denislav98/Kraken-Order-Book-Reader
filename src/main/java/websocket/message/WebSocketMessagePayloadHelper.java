@@ -1,7 +1,8 @@
 package websocket.message;
 
 import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
+import static org.apache.commons.lang3.StringUtils.EMPTY;
+import static org.apache.commons.lang3.StringUtils.isEmpty;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,8 +14,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import model.OrderBook;
 import model.OrderBookElement;
@@ -25,12 +24,11 @@ import model.OrderBookElement;
  */
 public class WebSocketMessagePayloadHelper {
 
-    private static final Logger LOGGER = LogManager.getLogger(WebSocketMessagePayloadHelper.class);
-
     private static final String ASKS = "as";
     private static final String ASKS_UPDATE = "a";
     private static final String BIDS = "bs";
     private static final String BIDS_UPDATE = "b";
+    private static final int ORDER_BOOK_PAIR_INDEX_FROM_RESPONSE = 3;
 
     private static final Gson GSON = new Gson().newBuilder().create();
 
@@ -40,15 +38,9 @@ public class WebSocketMessagePayloadHelper {
      * @param orderBookPairs - pair, e.g. "ETH-USD","BTC/USD"
      * @return String - String message
      *
-     * <b>Example: </b> {"event": "subscribe", "pair": ["ETH-USD","BTC/USD"], "subscription": {"name": "book"} }
+     * <b>Example: </b> {"event": "subscribe", "pair": ["ETH/USD","BTC/USD"], "subscription": {"name": "book"} }
      */
-    public static String createKrakenSubscribeMessage(List<String> orderBookPairs) {
-        // Sanity check - fail-fast
-        if (orderBookPairs == null || orderBookPairs.isEmpty()) {
-            System.err.println("Order book pairs are required.");
-            System.exit(1);
-        }
-
+    public static String createSubscribeMessage(List<String> orderBookPairs) {
         JsonObject simpleSubscribeMessage = new JsonObject();
         simpleSubscribeMessage.add("event", new JsonPrimitive("subscribe"));
 
@@ -71,13 +63,9 @@ public class WebSocketMessagePayloadHelper {
      * @param response String response message
      * @return OrderBook object build from the response
      */
-    public static OrderBook buildOrderBook(String response) {
+    public static OrderBook createOrderBook(String response) {
         // Sanity check - fail-fast
-        if (response == null) {
-            return null;
-        }
-
-        if (response.contains("event")) {
+        if (isEmpty(response)) {
             return null;
         }
 
@@ -93,11 +81,7 @@ public class WebSocketMessagePayloadHelper {
      */
     public static void updateOrderBook(String response, OrderBook book) {
         // Sanity check - fail-fast
-        if (response == null) {
-            return;
-        }
-
-        if (response.contains("event")) {
+        if (isEmpty(response)) {
             return;
         }
 
@@ -117,15 +101,16 @@ public class WebSocketMessagePayloadHelper {
      */
     public static String getOrderBookPair(String response) {
         // Sanity check - fail-fast
-        if (response == null) {
-            return null;
+        if (isEmpty(response)) {
+            return EMPTY;
         }
 
         if (response.contains("event")) {
-            return null;
+            return EMPTY;
         }
 
-        return GSON.fromJson(response, JsonArray.class).get(3).getAsString();
+        return GSON.fromJson(response, JsonArray.class).get(ORDER_BOOK_PAIR_INDEX_FROM_RESPONSE)
+                .getAsString();
     }
 
     private static JsonObject getOrderBookJsonObject(String response) {
@@ -135,13 +120,13 @@ public class WebSocketMessagePayloadHelper {
 
     private static void updateOrderBookBids(JsonObject orderBookJsonObject, OrderBook book) {
         JsonArray bidsList = orderBookJsonObject.get(BIDS_UPDATE).getAsJsonArray();
-        List<OrderBookElement> updatedElements = buildOrderBookUpdate(bidsList);
+        List<OrderBookElement> updatedElements = getOrderBookUpdateElements(bidsList);
         book.updateBids(updatedElements);
     }
 
     private static void updateOrderBookAsks(JsonObject orderBookJsonObject, OrderBook book) {
         JsonArray asksList = orderBookJsonObject.get(ASKS_UPDATE).getAsJsonArray();
-        List<OrderBookElement> updatedElements = buildOrderBookUpdate(asksList);
+        List<OrderBookElement> updatedElements = getOrderBookUpdateElements(asksList);
         book.updateAsks(updatedElements);
     }
 
@@ -149,8 +134,8 @@ public class WebSocketMessagePayloadHelper {
         JsonArray asksList = orderBook.get(ASKS).getAsJsonArray();
         JsonArray bidsList = orderBook.get(BIDS).getAsJsonArray();
 
-        Map<Float, Float> asks = extractPricePerVolumeEntries(asksList);
-        Map<Float, Float> bids = extractPricePerVolumeEntries(bidsList);
+        Map<Float, Float> asks = extractVolumePerPriceEntries(asksList);
+        Map<Float, Float> bids = extractVolumePerPriceEntries(bidsList);
 
         return new OrderBook(asks, bids);
     }
@@ -160,20 +145,15 @@ public class WebSocketMessagePayloadHelper {
      * @param priceWithVolumeArray prices/volumes as JSONArray
      * @return Map of [price, volume] entries
      */
-    private static Map<Float, Float> extractPricePerVolumeEntries(JsonArray priceWithVolumeArray) {
-        // Sanity check - fail-fast
-        if (priceWithVolumeArray == null || priceWithVolumeArray.size() == 0) {
-            return emptyMap();
-        }
-
-        Map<Float, Float> prices = new TreeMap<>();
+    private static Map<Float, Float> extractVolumePerPriceEntries(JsonArray priceWithVolumeArray) {
+        Map<Float, Float> volumePerPrice = new TreeMap<>();
 
         for (JsonElement element : priceWithVolumeArray) {
             OrderBookElement orderBookElement = getOrderBookElement(element);
-            prices.put(orderBookElement.getPrice(), orderBookElement.getVolume());
+            volumePerPrice.put(orderBookElement.getPrice(), orderBookElement.getVolume());
         }
 
-        return prices;
+        return volumePerPrice;
     }
 
     /**
@@ -182,7 +162,7 @@ public class WebSocketMessagePayloadHelper {
      * @param jsonArray a collection of (price, volume, date) elements
      * @return List of OrderBookElement`s
      */
-    private static List<OrderBookElement> buildOrderBookUpdate(JsonArray jsonArray) {
+    private static List<OrderBookElement> getOrderBookUpdateElements(JsonArray jsonArray) {
         // Sanity check - fail-fast
         if (jsonArray == null || jsonArray.size() == 0) {
             return emptyList();

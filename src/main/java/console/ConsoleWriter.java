@@ -6,13 +6,14 @@ import java.util.SortedMap;
 
 import model.OrderBook;
 
-public class AppConsolePrinter {
+public class ConsoleWriter {
 
+    private static final String BEST_ASK_OR_BID_MSG_FORMAT = "best %s: [%s, %s]%n";
     private static final String ORDER_BOOK_ASKS = "asks";
     private static final String ORDER_BOOK_BIDS = "bids";
 
     /**
-     * Simple console printing method to display the order book asks and bids
+     * Simple console printing method to display the order book asks and bids for the given pair
      * @param orderBookMap a map of pair and corresponding order book
      */
     public static void display(Map<String, OrderBook> orderBookMap) {
@@ -21,7 +22,7 @@ public class AppConsolePrinter {
             printBeggingMessage();
             printBookAsks(book);
             printBookBids(book);
-            printOrderBookPir(orderBookEntry);
+            printOrderBookPair(orderBookEntry);
             printLocalDateTime();
             printEndMessage();
         }
@@ -31,7 +32,7 @@ public class AppConsolePrinter {
         System.out.println(LocalDateTime.now());
     }
 
-    private static void printOrderBookPir(Map.Entry<String, OrderBook> orderBookEntry) {
+    private static void printOrderBookPair(Map.Entry<String, OrderBook> orderBookEntry) {
         System.out.println(orderBookEntry.getKey());
     }
 
@@ -59,14 +60,14 @@ public class AppConsolePrinter {
 
     private static void printBestOrderBookAsks(SortedMap<Float, Float> map) {
         Map.Entry<Float, Float> bestAsk = map.entrySet().iterator().next();
-        System.out.printf("best %s: [%s, %s]%n", ORDER_BOOK_ASKS, bestAsk.getKey(),
+        System.out.printf(BEST_ASK_OR_BID_MSG_FORMAT, ORDER_BOOK_ASKS, bestAsk.getKey(),
                 bestAsk.getValue());
     }
 
     private static void printBestOrderBookBids(SortedMap<Float, Float> map) {
         float bestBidPrice = map.lastKey();
         float bestBidVolume = map.get(bestBidPrice);
-        System.out.printf("best %s: [%s, %s]%n", ORDER_BOOK_BIDS, bestBidPrice, bestBidVolume);
+        System.out.printf(BEST_ASK_OR_BID_MSG_FORMAT, ORDER_BOOK_BIDS, bestBidPrice, bestBidVolume);
     }
 
     private static void printOrderBook(Map<Float, Float> map) {

@@ -1,8 +1,13 @@
 package websocket.message;
 
+import java.util.Map;
+
+import model.OrderBook;
+
 /**
  * A contract to fulfill by a class that can process WebSocket messages.
  */
 public interface IMessageHandler {
-    void handleMessage(String message);
+
+    Map<String, OrderBook> handleMessage(String message);
 }
